@@ -8,6 +8,9 @@ export declare class Command {
     cacheCommand(name: CommandName): Promise<any>;
     allCommand(): Promise<void>;
     getCommand(name: CommandName): Promise<any>;
+    private safeFetch;
+    private processFetchRequest;
+    private fetchQueue;
     imaginePayload(prompt: string, nonce?: string): Promise<{
         type: number;
         application_id: any;

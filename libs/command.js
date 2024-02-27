@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Command = exports.Commands = void 0;
+const tslib_1 = require("tslib");
+const async_1 = tslib_1.__importDefault(require("async"));
+const utils_1 = require("./utils");
 exports.Commands = [
     "ask",
     "blend",
@@ -45,12 +48,8 @@ class Command {
         return this.cache[name];
     }
     async allCommand() {
-        const searchParams = new URLSearchParams({
-            type: "1",
-            include_applications: "true",
-        });
-        const url = `${this.config.DiscordBaseUrl}/api/v9/channels/${this.config.ChannelId}/application-commands/search?${searchParams}`;
-        const response = await this.config.fetch(url, {
+        const url = `${this.config.DiscordBaseUrl}/api/v9/guilds/${this.config.ServerId}/application-command-index`;
+        const response = await this.safeFetch(url, {
             headers: { authorization: this.config.SalaiToken },
         });
         const data = await response.json();
@@ -64,15 +63,8 @@ class Command {
         }
     }
     async getCommand(name) {
-        const searchParams = new URLSearchParams({
-            type: "1",
-            query: name,
-            limit: "1",
-            include_applications: "true",
-            // command_ids: `${this.config.BotId}`,
-        });
-        const url = `${this.config.DiscordBaseUrl}/api/v9/channels/${this.config.ChannelId}/application-commands/search?${searchParams}`;
-        const response = await this.config.fetch(url, {
+        const url = `${this.config.DiscordBaseUrl}/api/v9/guilds/${this.config.ServerId}/application-command-index`;
+        const response = await this.safeFetch(url, {
             headers: { authorization: this.config.SalaiToken },
         });
         const data = await response.json();
@@ -81,6 +73,30 @@ class Command {
         }
         throw new Error(`Failed to get application_commands for command ${name}`);
     }
+    safeFetch(input, init) {
+        const request = this.config.fetch.bind(this, input, init);
+        return new Promise((resolve, reject) => {
+            this.fetchQueue.push({
+                request,
+                callback: (res) => {
+                    resolve(res);
+                },
+            }, (error, result) => {
+                if (error) {
+                    reject(error);
+                }
+                else {
+                    resolve(result);
+                }
+            });
+        });
+    }
+    async processFetchRequest({ request, callback }) {
+        const res = await request();
+        callback(res);
+        await (0, utils_1.sleep)(1000 * 4);
+    }
+    fetchQueue = async_1.default.queue(this.processFetchRequest, 1);
     async imaginePayload(prompt, nonce) {
         const data = await this.commandData("imagine", [
             {
